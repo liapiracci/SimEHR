@@ -235,7 +235,7 @@ textarea.learning-note{
   .patient-status,.patient-actions{grid-column:2;grid-row:auto}
   .patient-actions{justify-content:flex-start}
 }
-</style>
+.import-status{margin:0 0 14px;padding:11px 14px;border-radius:12px;font-size:13px;border:1px solid var(--pink-200)}.import-status.success{background:#f4fbf7;color:#397050;border-color:#cfe9d9}.import-status.error{background:#fff5f6;color:#a04d61;border-color:#f0cbd4}</style>
 </head>
 <body>
 <div id="app"></div><div id="toast" class="toast"></div>
@@ -260,27 +260,61 @@ function exportChart(){
   const url=URL.createObjectURL(blob);
   const a=document.createElement("a");
   const safe=(c.patient.name||"SimEHR_Chart").replace(/[^a-z0-9_-]+/gi,"_");
-  a.href=url;a.download=`${safe}.simehr.json`;a.click();
+  a.href=url;a.download=`${safe}.json`;a.click();
   setTimeout(()=>URL.revokeObjectURL(url),500);
   toast("Chart exported");
 }
 function importChart(file){
-  if(!file)return;
+  if(!file){showImportStatus("No chart file selected","error");return}
   const reader=new FileReader();
+  reader.onerror=()=>showImportStatus("⚠️ Could not read that file","error");
   reader.onload=()=>{
     try{
-      const c=JSON.parse(reader.result);
-      if(!c.id||!c.patient||!c.orders)throw new Error("Invalid SimEHR chart");
-      c.id=uid();c.updated=new Date().toISOString();c.importedAt=new Date().toISOString();
-      charts.unshift(c);save();currentId=c.id;activeTab="summary";render();toast("Chart imported");
-    }catch(e){toast("That file is not a valid SimEHR chart")}
+      let raw=reader.result;
+      if(typeof raw!=="string") throw new Error("File could not be read as text");
+      // Remove a possible UTF-8 BOM.
+      raw=raw.replace(/^\uFEFF/,"").trim();
+      const c=JSON.parse(raw);
+      if(!c || typeof c!=="object" || !c.patient || typeof c.patient!=="object" || !c.orders || typeof c.orders!=="object"){
+        throw new Error("This file is not a SimEHR chart");
+      }
+      const imported=JSON.parse(JSON.stringify(c));
+      imported.id=uid();
+      imported.updated=new Date().toISOString();
+      imported.importedAt=new Date().toISOString();
+      imported.patient=imported.patient||{};
+      imported.orders=imported.orders||{};
+      imported.orders.medications=imported.orders.medications||[];
+      imported.orders.interventions=imported.orders.interventions||[];
+      imported.orders.imaging=imported.orders.imaging||[];
+      imported.orders.consults=imported.orders.consults||[];
+      imported.orders.labwork=imported.orders.labwork||[];
+      charts=Array.isArray(charts)?charts:[];
+
+      // Avoid silently losing the imported chart if local storage is full.
+      charts.unshift(imported);
+      try{
+        save();
+      }catch(storageErr){
+        charts=charts.filter(x=>x.id!==imported.id);
+        throw new Error("Your iPad browser storage is full. Export or delete an old chart and try again.");
+      }
+
+      currentId=imported.id;
+      activeTab="summary";
+      render();
+      showImportStatus(`✓ Chart imported successfully — ${imported.patient.name||"Unnamed patient"}`,"success");
+    }catch(err){
+      console.error("SimEHR import error:",err);
+      showImportStatus(`⚠️ ${err.message||"Could not import this chart"}`,"error");
+    }
   };
   reader.readAsText(file);
 }
 
 function setPath(obj,path,value){const parts=path.split(".");let cur=obj;for(let i=0;i<parts.length-1;i++){if(!cur[parts[i]]||typeof cur[parts[i]]!=="object")cur[parts[i]]={};cur=cur[parts[i]]}cur[parts[parts.length-1]]=value}function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,7)}
 function esc(s){return String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]))}
-function toast(t){const x=document.getElementById("toast");x.textContent=t;x.style.display="block";setTimeout(()=>x.style.display="none",1800)}
+function toast(t){const x=document.getElementById("toast");x.textContent=t;x.style.display="block";setTimeout(()=>x.style.display="none",1800)}function showImportStatus(message,type){const x=document.getElementById("importStatus");if(!x){toast(message);return}x.textContent=message;x.className=`import-status ${type||"success"}`;x.style.display="block";setTimeout(()=>{if(x)x.style.display="none"},5000)}
 function newChart(){const c={id:uid(),created:new Date().toISOString(),updated:new Date().toISOString(),patient:{name:"",dob:"",dobage:"",mrn:"",allergies:"",code:"Full Code",chief:"",scenario:""},assessment:{},vitals:[],labs:[],orders:{medications:[],interventions:[],imaging:[],consults:[],labwork:[],otherLabOrders:""},notes:[],final:{diagnosis:"",secondary:"",disposition:"",discharge:"",wentWell:"",improve:"",definitions:"",questions:"",finalized:false}};charts.unshift(c);save();currentId=c.id;activeTab="summary";render()}
 function current(){return charts.find(c=>c.id===currentId)}
 function update(){const c=current();if(!c)return;c.updated=new Date().toISOString();save()}
@@ -298,7 +332,7 @@ function libraryHTML(){
       <div class="library-nav">
         <button class="library-nav-item active" id="navPatients">♧ <span>Patients</span></button>
         <button class="library-nav-item" id="navNew">⊕ <span>New Simulation</span></button>
-        <label class="library-nav-item">⇧ <span>Import Chart</span><input id="importChart" type="file" accept=".json,.simehr.json,application/json" style="display:none"></label>
+        <label class="library-nav-item">⇧ <span>Import Chart</span><input id="importChart" type="file" accept="application/json,.json,*/*" style="display:none"></label>
         <button class="library-nav-item" id="exportAll">⇩ <span>Export All Charts</span></button>
       </div>
       <div class="library-sidebar-footer">☁︎ <span>Charts stored locally on this device</span></div>
@@ -316,7 +350,7 @@ function libraryHTML(){
           <button class="btn primary library-new" id="new">＋ New Simulation</button>
         </div>
 
-        <div class="library-toolbar">
+        <div id="importStatus" class="import-status" style="display:none"></div><div class="library-toolbar">
           <div class="search-wrap">⌕<input id="search" class="field" placeholder="Search patients..."></div>
           <select id="statusFilter" class="field toolbar-select">
             <option value="all">All Statuses</option>
@@ -469,7 +503,7 @@ function bind(){
   document.getElementById("back")?.addEventListener("click",()=>{currentId=null;render()});
   document.getElementById("saveBtn")?.addEventListener("click",()=>{update();toast("Chart saved")});
   document.getElementById("exportChart")?.addEventListener("click",exportChart);
-  document.getElementById("importChart")?.addEventListener("change",e=>importChart(e.target.files[0]));
+  document.getElementById("importChart")?.addEventListener("change",e=>{importChart(e.target.files[0]);e.target.value="";});
   document.getElementById("exportAll")?.addEventListener("click",()=>{
     const blob=new Blob([JSON.stringify(charts,null,2)],{type:"application/json"});
     const url=URL.createObjectURL(blob);const a=document.createElement("a");
