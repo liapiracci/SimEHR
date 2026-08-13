@@ -251,7 +251,33 @@ const assessmentGroups={
 "Musculoskeletal":["Moves all extremities","Weakness","Limited ROM","Unsteady gait","Assist x1","Assist x2","Independent","Uses assistive device"],
 "Pain":["No pain","Acute pain","Chronic pain","Sharp","Dull","Burning","Pressure","Cramping"]
 };
+
+function isTrulyEmptyChart(c){
+  const p=c?.patient||{}, f=c?.final||{};
+  const patientEmpty=!p.name&&!p.dobage&&!p.dob&&!p.mrn&&!p.allergies&&!p.chief&&!p.scenario;
+  const assessmentEmpty=!c.assessment||Object.keys(c.assessment).every(k=>{
+    const v=c.assessment[k];
+    return Array.isArray(v)?v.length===0:(!v||typeof v!=="object"||Object.keys(v).length===0);
+  });
+  const vitalsEmpty=!(c.vitals||[]).some(r=>Object.values(r||{}).some(v=>v));
+  const labsEmpty=!(c.labs||[]).some(r=>Object.entries(r||{}).some(([k,v])=>k!=="time"&&v&&(typeof v!=="object"||Object.keys(v).length)));
+  const orders=c.orders||{};
+  const ordersEmpty=["medications","interventions","imaging","consults","labwork"].every(k=>!(orders[k]||[]).length)&&!orders.otherLabOrders;
+  const notesEmpty=!(c.notes||[]).some(n=>n?.text);
+  const finalEmpty=["diagnosis","secondary","disposition","discharge","wentWell","improve","definitions","questions"].every(k=>!f[k]);
+  return patientEmpty&&assessmentEmpty&&vitalsEmpty&&labsEmpty&&ordersEmpty&&notesEmpty&&finalEmpty;
+}
+function removeAccidentalEmptyCharts(){
+  const before=charts.length;
+  const kept=charts.filter(c=>!isTrulyEmptyChart(c));
+  if(kept.length!==before){
+    charts=kept;save();
+    return before-kept.length;
+  }
+  return 0;
+}
 let charts=load(), currentId=null, activeTab="summary";
+const removedEmptyCharts=removeAccidentalEmptyCharts();
 function load(){try{return JSON.parse(localStorage.getItem(KEY)||"[]")}catch(e){return[]}}
 function save(){localStorage.setItem(KEY,JSON.stringify(charts))}
 function exportChart(){
@@ -488,14 +514,17 @@ function regularOrder(o,i,key){
 function notes(c){return `<div class="card"><h2 class="section-title">Nursing Notes</h2><label>Note type<select class="field" id="noteType"><option>Focused assessment</option><option>Reassessment</option><option>Intervention</option><option>Provider notification</option><option>SBAR handoff</option></select></label><label style="margin-top:10px">Note<textarea class="field" id="noteText" rows="8" placeholder="Document objectively..."></textarea></label><button class="btn primary" id="addNote" style="margin-top:10px">Sign & timestamp</button></div><div class="card"><h2 class="section-title">Timeline</h2>${c.notes.slice().reverse().map(n=>`<div style="border-bottom:1px solid var(--line);padding:12px 0"><b>${esc(n.type)}</b><div class="muted">${new Date(n.time).toLocaleString()}</div><div style="white-space:pre-wrap;margin-top:5px">${esc(n.text)}</div></div>`).join("")||`<p class="muted">No notes yet.</p>`}</div>`}
 function finalTab(c){return `<div class="card"><h2 class="section-title">Final Diagnosis & Disposition</h2><div class="grid g2">${input("Primary diagnosis","final.diagnosis",c.final.diagnosis)}${input("Secondary diagnoses","final.secondary",c.final.secondary)}<label>Disposition<select class="field" data-key="final.disposition"><option value="">Select...</option>${["Discharged home","Admitted","ICU","Transferred","OR","Other"].map(x=>`<option ${c.final.disposition===x?"selected":""}>${x}</option>`).join("")}</select></label>${input("Discharge time","final.discharge",c.final.discharge,'type="datetime-local"')}</div><label style="margin-top:12px">Discharge instructions<textarea class="field compact-note" rows="3" data-key="final.instructions">${esc(c.final.instructions||"")}</textarea></label></div><div class="card"><h2 class="section-title">My Learning Notes</h2><p class="muted">Large areas for reflection and study notes.</p><label>What went well<textarea class="field learning-note" rows="7" data-key="final.wentWell">${esc(c.final.wentWell||"")}</textarea></label><label style="margin-top:12px">What could I have done better?<textarea class="field learning-note" rows="7" data-key="final.improve">${esc(c.final.improve||"")}</textarea></label><label style="margin-top:12px">Definitions / concepts to review<textarea class="field learning-note" rows="7" data-key="final.definitions">${esc(c.final.definitions||"")}</textarea></label><label style="margin-top:12px">Questions to look up later<textarea class="field learning-note" rows="7" data-key="final.questions">${esc(c.final.questions||"")}</textarea></label></div>`}
 
+function bindLibraryRows(){
+  bindLibraryRows();
+}
 function bind(){
   const c=current();
   document.getElementById("new")?.addEventListener("click",()=>newChart());
   document.getElementById("navNew")?.addEventListener("click",()=>newChart());
   document.querySelectorAll(".open").forEach(b=>b.onclick=()=>{currentId=b.dataset.id;activeTab="summary";render()});
   document.querySelectorAll(".del").forEach(b=>b.onclick=()=>{if(confirm("Delete this simulation?")){charts=charts.filter(x=>x.id!==b.dataset.id);save();render()}});
-  document.querySelectorAll(".rowExport").forEach(b=>b.onclick=()=>{const c=charts.find(x=>x.id===b.dataset.id);if(c){const blob=new Blob([JSON.stringify(c,null,2)],{type:"application/json"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=`${(c.patient.name||"SimEHR_Chart").replace(/[^a-z0-9_-]+/gi,"_")}.simehr.json`;a.click();setTimeout(()=>URL.revokeObjectURL(url),500)}});
-  const refreshLibrary=()=>{const q=(document.getElementById("search")?.value||"").toLowerCase();const st=document.getElementById("statusFilter")?.value||"all";const sort=document.getElementById("sortCharts")?.value||"recent";let arr=charts.filter(x=>JSON.stringify(x).toLowerCase().includes(q));if(st==="finalized")arr=arr.filter(x=>x.finalized);if(st==="progress")arr=arr.filter(x=>!x.finalized);arr.sort((a,b)=>sort==="name"?String(a.patient.name||"").localeCompare(String(b.patient.name||"")):sort==="oldest"?new Date(a.updated||0)-new Date(b.updated||0):new Date(b.updated||0)-new Date(a.updated||0));document.getElementById("list").innerHTML=libraryRows(arr);bind()};
+  document.querySelectorAll(".rowExport").forEach(b=>b.onclick=()=>{const c=charts.find(x=>x.id===b.dataset.id);if(c){const blob=new Blob([JSON.stringify(c,null,2)],{type:"application/json"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=`${(c.patient.name||"SimEHR_Chart").replace(/[^a-z0-9_-]+/gi,"_")}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(url),500)}});
+  const refreshLibrary=()=>{const q=(document.getElementById("search")?.value||"").toLowerCase();const st=document.getElementById("statusFilter")?.value||"all";const sort=document.getElementById("sortCharts")?.value||"recent";let arr=charts.filter(x=>JSON.stringify(x).toLowerCase().includes(q));if(st==="finalized")arr=arr.filter(x=>x.finalized);if(st==="progress")arr=arr.filter(x=>!x.finalized);arr.sort((a,b)=>sort==="name"?String(a.patient.name||"").localeCompare(String(b.patient.name||"")):sort==="oldest"?new Date(a.updated||0)-new Date(b.updated||0):new Date(b.updated||0)-new Date(a.updated||0));document.getElementById("list").innerHTML=libraryRows(arr);bindLibraryRows()};
   document.getElementById("search")?.addEventListener("input",refreshLibrary);
   document.getElementById("statusFilter")?.addEventListener("change",refreshLibrary);
   document.getElementById("sortCharts")?.addEventListener("change",refreshLibrary);
