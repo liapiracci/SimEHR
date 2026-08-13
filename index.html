@@ -298,38 +298,57 @@ function importChart(file){
     try{
       let raw=reader.result;
       if(typeof raw!=="string") throw new Error("File could not be read as text");
-      // Remove a possible UTF-8 BOM.
       raw=raw.replace(/^\uFEFF/,"").trim();
-      const c=JSON.parse(raw);
-      if(!c || typeof c!=="object" || !c.patient || typeof c.patient!=="object" || !c.orders || typeof c.orders!=="object"){
-        throw new Error("This file is not a SimEHR chart");
-      }
-      const imported=JSON.parse(JSON.stringify(c));
-      imported.id=uid();
-      imported.updated=new Date().toISOString();
-      imported.importedAt=new Date().toISOString();
-      imported.patient=imported.patient||{};
-      imported.orders=imported.orders||{};
-      imported.orders.medications=imported.orders.medications||[];
-      imported.orders.interventions=imported.orders.interventions||[];
-      imported.orders.imaging=imported.orders.imaging||[];
-      imported.orders.consults=imported.orders.consults||[];
-      imported.orders.labwork=imported.orders.labwork||[];
-      charts=Array.isArray(charts)?charts:[];
+      const parsed=JSON.parse(raw);
 
-      // Avoid silently losing the imported chart if local storage is full.
-      charts.unshift(imported);
+      // SimEHR exports come in two valid forms:
+      // 1) a single chart from "Export Chart"
+      // 2) an array of charts from "Export All Charts"
+      const candidates=Array.isArray(parsed)?parsed:[parsed];
+      if(!candidates.length) throw new Error("The SimEHR export contains no charts.");
+
+      const valid=candidates.filter(c=>c && typeof c==="object" &&
+        c.patient && typeof c.patient==="object" &&
+        c.orders && typeof c.orders==="object");
+
+      if(!valid.length){
+        throw new Error("This file does not contain a valid SimEHR chart.");
+      }
+
+      const importedCharts=valid.map(c=>{
+        const imported=JSON.parse(JSON.stringify(c));
+        imported.id=uid();
+        imported.updated=new Date().toISOString();
+        imported.importedAt=new Date().toISOString();
+        imported.patient=imported.patient||{};
+        imported.orders=imported.orders||{};
+        imported.orders.medications=imported.orders.medications||[];
+        imported.orders.interventions=imported.orders.interventions||[];
+        imported.orders.imaging=imported.orders.imaging||[];
+        imported.orders.consults=imported.orders.consults||[];
+        imported.orders.labwork=imported.orders.labwork||[];
+        return imported;
+      });
+
+      const previous=Array.isArray(charts)?charts:[];
+      charts=[...importedCharts,...previous];
+
       try{
         save();
       }catch(storageErr){
-        charts=charts.filter(x=>x.id!==imported.id);
+        charts=previous;
         throw new Error("Your iPad browser storage is full. Export or delete an old chart and try again.");
       }
 
-      currentId=imported.id;
+      currentId=importedCharts[0].id;
       activeTab="summary";
       render();
-      showImportStatus(`✓ Chart imported successfully — ${imported.patient.name||"Unnamed patient"}`,"success");
+
+      if(importedCharts.length===1){
+        showImportStatus(`✓ Chart imported successfully — ${importedCharts[0].patient.name||"Unnamed patient"}`,"success");
+      }else{
+        showImportStatus(`✓ ${importedCharts.length} charts imported successfully`,"success");
+      }
     }catch(err){
       console.error("SimEHR import error:",err);
       showImportStatus(`⚠️ ${err.message||"Could not import this chart"}`,"error");
