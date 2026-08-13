@@ -70,5 +70,36 @@ function regularOrder(o,i,key){return `<div class="order-block"><div class="grid
 
 function notes(c){return `<div class="card"><h2 class="section-title">Nursing Notes</h2><label>Note type<select class="field" id="noteType"><option>Focused assessment</option><option>Reassessment</option><option>Intervention</option><option>Provider notification</option><option>SBAR handoff</option></select></label><label style="margin-top:10px">Note<textarea class="field" id="noteText" rows="8" placeholder="Document objectively..."></textarea></label><button class="btn primary" id="addNote" style="margin-top:10px">Sign & timestamp</button></div><div class="card"><h2 class="section-title">Timeline</h2>${c.notes.slice().reverse().map(n=>`<div style="border-bottom:1px solid var(--line);padding:12px 0"><b>${esc(n.type)}</b><div class="muted">${new Date(n.time).toLocaleString()}</div><div style="white-space:pre-wrap;margin-top:5px">${esc(n.text)}</div></div>`).join("")||`<p class="muted">No notes yet.</p>`}</div>`}
 function finalTab(c){return `<div class="card"><h2 class="section-title">Final Diagnosis & Disposition</h2><div class="grid g2">${input("Primary diagnosis","final.diagnosis",c.final.diagnosis)}${input("Secondary diagnoses","final.secondary",c.final.secondary)}<label>Disposition<select class="field" data-key="final.disposition"><option value="">Select...</option>${["Discharged home","Admitted","ICU","Transferred","OR","Other"].map(x=>`<option ${c.final.disposition===x?"selected":""}>${x}</option>`).join("")}</select></label>${input("Discharge time","final.discharge",c.final.discharge,'type="datetime-local"')}</div><label style="margin-top:12px">Discharge instructions<textarea class="field compact-note" rows="3" data-key="final.instructions">${esc(c.final.instructions||"")}</textarea></label></div><div class="card"><h2 class="section-title">My Learning Notes</h2><p class="muted">Large areas for reflection and study notes.</p><label>What went well<textarea class="field learning-note" rows="7" data-key="final.wentWell">${esc(c.final.wentWell||"")}</textarea></label><label style="margin-top:12px">What could I have done better?<textarea class="field learning-note" rows="7" data-key="final.improve">${esc(c.final.improve||"")}</textarea></label><label style="margin-top:12px">Definitions / concepts to review<textarea class="field learning-note" rows="7" data-key="final.definitions">${esc(c.final.definitions||"")}</textarea></label><label style="margin-top:12px">Questions to look up later<textarea class="field learning-note" rows="7" data-key="final.questions">${esc(c.final.questions||"")}</textarea></label></div>`}
-</script><script>if('serviceWorker' in navigator){navigator.serviceWorker.register('./sw.js').catch(()=>{});}</script></body>
+
+<script>
+function bind(){
+  const c=current();
+  document.querySelectorAll("[data-nav]").forEach(b=>b.onclick=()=>nav(b.dataset.nav));
+  document.getElementById("back")?.addEventListener("click",()=>{currentId=null;render()});
+  document.getElementById("saveBtn")?.addEventListener("click",()=>{update();toast("Chart saved")});
+  document.querySelectorAll("[data-key]").forEach(el=>el.addEventListener("input",e=>{setPath(c,e.target.dataset.key,e.target.value);update()}));
+  document.querySelectorAll("[data-assess]").forEach(el=>el.addEventListener("change",e=>{const g=e.target.dataset.assess;c.assessment[g]=c.assessment[g]||[];if(e.target.checked)c.assessment[g].push(e.target.value);else c.assessment[g]=c.assessment[g].filter(x=>x!==e.target.value);update()}));
+  document.querySelectorAll("[data-other]").forEach(el=>el.addEventListener("input",e=>{c.assessment._other=c.assessment._other||{};c.assessment._other[e.target.dataset.other]=e.target.value;update()}));
+
+  document.querySelectorAll(".flow-time").forEach(el=>el.addEventListener("input",e=>{c.vitals[+e.target.dataset.row].time=e.target.value;update()}));
+  document.querySelectorAll(".flowcell").forEach(el=>el.addEventListener("input",e=>{c.vitals[+e.target.dataset.row][e.target.dataset.k]=e.target.value;update()}));
+  document.getElementById("addVitalTime")?.addEventListener("click",()=>{c.vitals.push({time:"",bp:"",hr:"",rr:"",spo2:"",temp:"",pain:""});update();render()});
+
+  document.querySelectorAll(".lab-time").forEach(el=>el.addEventListener("input",e=>{c.labs[+e.target.dataset.row].time=e.target.value;update()}));
+  document.querySelectorAll(".labcell").forEach(el=>el.addEventListener("input",e=>{c.labs[+e.target.dataset.row][e.target.dataset.k]=e.target.value;update()}));
+  document.querySelectorAll(".labhead").forEach(el=>el.addEventListener("change",e=>{const old=e.target.dataset.col,next=e.target.value.trim()||old;if(next!==old){c.labCols=c.labCols.map(x=>x===old?next:x);c.labs.forEach(r=>{if(r[old]!==undefined){r[next]=r[old];delete r[old]}});update();render()}}));
+  document.getElementById("addLabTime")?.addEventListener("click",()=>{c.labs.push({time:""});update();render()});
+  document.getElementById("addLab")?.addEventListener("click",()=>{const name="New Lab "+(c.labCols.length+1);c.labCols.push(name);c.labs.forEach(r=>r[name]="");update();render()});
+  document.querySelectorAll(".labordercheck").forEach(el=>el.addEventListener("change",()=>{c.orders.labwork=[...document.querySelectorAll(".labordercheck:checked")].map(x=>x.value);update()}));
+  document.getElementById("otherLabOrders")?.addEventListener("input",e=>{c.orders.otherLabOrders=e.target.value;update()});
+
+  document.querySelectorAll(".addOrder").forEach(b=>b.onclick=()=>{c.orders[b.dataset.type].push(b.dataset.type==="imaging"?{type:"Ultrasound",body:"Abdomen",status:"Ordered",result:""}:{description:"",status:"Ordered"});update();render()});
+  document.querySelectorAll(".removeOrder").forEach(b=>b.onclick=()=>{c.orders[b.dataset.type].splice(+b.dataset.i,1);update();render()});
+  document.querySelectorAll(".ordercell").forEach(el=>el.addEventListener("change",e=>{const o=c.orders[e.target.dataset.type][+e.target.dataset.i];o[e.target.dataset.k]=e.target.value;update();if(e.target.dataset.type==="imaging"&&e.target.dataset.k==="type"){o.body=e.target.value==="Ultrasound"?"Abdomen":e.target.value==="CT"?"Head/Brain":e.target.value==="MRI"?"Brain":e.target.value==="X-ray"?"Chest":"Other";render()}}));
+  document.querySelectorAll(".media").forEach(el=>el.addEventListener("change",e=>{const f=e.target.files[0];if(!f)return;c.orders[e.target.dataset.type][+e.target.dataset.i].mediaName=f.name;update();toast("Media selected for this imaging order")}));
+
+  document.getElementById("addNote")?.addEventListener("click",()=>{const t=document.getElementById("noteText"),type=document.getElementById("noteType");if(!t.value.trim()){toast("Enter a note first");return}c.notes.push({time:new Date().toISOString(),type:type.value,text:t.value});t.value="";update();render();toast("Note signed")});
+}
+document.addEventListener("DOMContentLoaded",()=>{if(!currentId)render();});
+</script></script><script>if('serviceWorker' in navigator){navigator.serviceWorker.register('./sw.js').catch(()=>{});}</script></body>
 </html>
