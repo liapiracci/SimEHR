@@ -86,6 +86,44 @@ function bind(){
 
   document.querySelectorAll(".flow-time").forEach(el=>el.addEventListener("input",e=>{c.vitals[+e.target.dataset.row].time=e.target.value;update()}));
   document.querySelectorAll(".flowcell").forEach(el=>el.addEventListener("input",e=>{c.vitals[+e.target.dataset.row][e.target.dataset.k]=e.target.value;update()}));
+  function flowTab(e){
+    if(e.key!=="Tab") return;
+    const target=e.target;
+    if(!target.classList.contains("flowcell") && !target.classList.contains("labcell")) return;
+    e.preventDefault();
+
+    const cls=target.classList.contains("flowcell")?".flowcell":".labcell";
+    const all=[...document.querySelectorAll(cls)];
+    const timeIndex=Number(target.dataset.row);
+    const currentKey=target.dataset.k;
+    const timeRows=[...new Set(all.map(x=>Number(x.dataset.row)))].sort((a,b)=>a-b);
+    const keys=[...new Set(all.map(x=>x.dataset.k))];
+    const keyIndex=keys.indexOf(currentKey);
+
+    let next=null;
+    if(!e.shiftKey){
+      // Down the current time column.
+      if(keys[keyIndex+1]!==undefined){
+        next=all.find(x=>Number(x.dataset.row)===timeIndex && x.dataset.k===keys[keyIndex+1]);
+      } else {
+        // At the bottom: wrap to the first row of the next time column.
+        const nextTime=timeRows[timeRows.indexOf(timeIndex)+1];
+        if(nextTime!==undefined) next=all.find(x=>Number(x.dataset.row)===nextTime && x.dataset.k===keys[0]);
+      }
+    } else {
+      // Up the current time column.
+      if(keys[keyIndex-1]!==undefined){
+        next=all.find(x=>Number(x.dataset.row)===timeIndex && x.dataset.k===keys[keyIndex-1]);
+      } else {
+        // At the top: wrap to the last row of the previous time column.
+        const prevTime=timeRows[timeRows.indexOf(timeIndex)-1];
+        if(prevTime!==undefined) next=all.find(x=>Number(x.dataset.row)===prevTime && x.dataset.k===keys[keys.length-1]);
+      }
+    }
+    if(next){next.focus();next.select?.();}
+  }
+  document.addEventListener("keydown",flowTab);
+
   document.getElementById("addVitalTime")?.addEventListener("click",()=>{c.vitals.push({time:"",bp:"",hr:"",rr:"",spo2:"",temp:"",pain:""});update();render()});
 
   document.querySelectorAll(".lab-time").forEach(el=>el.addEventListener("input",e=>{c.labs[+e.target.dataset.row].time=e.target.value;update()}));
