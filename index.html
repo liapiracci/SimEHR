@@ -168,7 +168,7 @@ textarea.learning-note{
 .ro-note{padding:14px 0;border-bottom:1px solid var(--line);white-space:pre-wrap}
 .ro-media{margin-top:10px;padding:10px;border:1px solid var(--pink-200);border-radius:12px;background:var(--pink-50);max-width:520px}
 .ro-media img{display:block;max-width:100%;max-height:380px;border-radius:8px}
-</style>
+.library-tools{margin:12px 0 18px;justify-content:flex-end}.library-tools .btn{display:inline-flex;align-items:center;gap:6px}</style>
 </head>
 <body>
 <div id="app"></div><div id="toast" class="toast"></div>
@@ -187,6 +187,30 @@ const assessmentGroups={
 let charts=load(), currentId=null, activeTab="summary";
 function load(){try{return JSON.parse(localStorage.getItem(KEY)||"[]")}catch(e){return[]}}
 function save(){localStorage.setItem(KEY,JSON.stringify(charts))}
+function exportChart(){
+  const c=current(); if(!c)return;
+  const blob=new Blob([JSON.stringify(c,null,2)],{type:"application/json"});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a");
+  const safe=(c.patient.name||"SimEHR_Chart").replace(/[^a-z0-9_-]+/gi,"_");
+  a.href=url;a.download=`${safe}.simehr.json`;a.click();
+  setTimeout(()=>URL.revokeObjectURL(url),500);
+  toast("Chart exported");
+}
+function importChart(file){
+  if(!file)return;
+  const reader=new FileReader();
+  reader.onload=()=>{
+    try{
+      const c=JSON.parse(reader.result);
+      if(!c.id||!c.patient||!c.orders)throw new Error("Invalid SimEHR chart");
+      c.id=uid();c.updated=new Date().toISOString();c.importedAt=new Date().toISOString();
+      charts.unshift(c);save();currentId=c.id;activeTab="summary";render();toast("Chart imported");
+    }catch(e){toast("That file is not a valid SimEHR chart")}
+  };
+  reader.readAsText(file);
+}
+
 function setPath(obj,path,value){const parts=path.split(".");let cur=obj;for(let i=0;i<parts.length-1;i++){if(!cur[parts[i]]||typeof cur[parts[i]]!=="object")cur[parts[i]]={};cur=cur[parts[i]]}cur[parts[parts.length-1]]=value}function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,7)}
 function esc(s){return String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]))}
 function toast(t){const x=document.getElementById("toast");x.textContent=t;x.style.display="block";setTimeout(()=>x.style.display="none",1800)}
@@ -196,9 +220,9 @@ function update(){const c=current();if(!c)return;c.updated=new Date().toISOStrin
 function nav(label){activeTab=label;render()}
 function input(label,key,value,extra=""){return `<label>${label}<input class="field" data-key="${key}" value="${esc(value)}" ${extra}></label>`}
 function render(){document.getElementById("app").innerHTML=current()?chartHTML():libraryHTML();bind()}
-function libraryHTML(){return `<div class="app"><div class="top"><div><div class="brand">SimEHR</div><div class="sub">Nursing simulation charting • local storage</div></div><button class="btn primary" id="new">+ New Simulation</button></div><div class="main"><div class="card"><h2 class="section-title">Patient Library</h2><input id="search" class="field" placeholder="Search patient, scenario, diagnosis..."><div id="list">${libraryRows(charts)}</div></div><div class="card"><div class="section-title">Data & Backup</div><div class="actions"><button class="btn" id="export">Export chart library</button><label class="btn">Import chart library<input id="import" type="file" accept=".json" style="display:none"></label></div><p class="muted">Charts are stored on this device. Export regularly so you have a backup.</p></div></div></div>`}
+function libraryHTML(){return `<div class="app"><div class="top"><div><div class="brand">SimEHR</div><div class="actions library-tools"><button class="btn" id="exportAll">⇩ Export All Charts</button><label class="btn" style="cursor:pointer">⇧ Import Chart<input id="importChart" type="file" accept=".json,.simehr.json,application/json" style="display:none"></label></div><div class="sub">Nursing simulation charting • local storage</div></div><button class="btn primary" id="new">+ New Simulation</button></div><div class="main"><div class="card"><h2 class="section-title">Patient Library</h2><input id="search" class="field" placeholder="Search patient, scenario, diagnosis..."><div id="list">${libraryRows(charts)}</div></div><div class="card"><div class="section-title">Data & Backup</div><div class="actions"><button class="btn" id="export">Export chart library</button><label class="btn">Import chart library<input id="import" type="file" accept=".json" style="display:none"></label></div><p class="muted">Charts are stored on this device. Export regularly so you have a backup.</p></div></div></div>`}
 function libraryRows(arr){if(!arr.length)return `<div class="empty">No simulations yet. Create your first chart.</div>`;return arr.map(c=>`<div class="library-row"><div><b>${esc(c.patient.name||"Unnamed patient")}</b><div class="muted">${esc(c.patient.scenario||"No scenario")} • ${new Date(c.updated).toLocaleDateString()}</div></div><div class="actions"><button class="btn open" data-id="${c.id}">Open</button><button class="btn danger del" data-id="${c.id}">Delete</button></div></div>`).join("")}
-function chartHTML(){const c=current();return `<div class="app"><div class="top"><div><div class="brand">SimEHR</div><div class="sub">${esc(c.patient.name||"New Patient")} • ${esc(c.patient.scenario||"New Simulation")}</div></div><div class="actions"><button class="btn" id="back">← Patients</button><button class="btn" id="saveBtn" ${c.finalized?"style=\"display:none\"":""}>Save</button><button class="btn ${c.finalized?"primary":"primary"}" id="${c.finalized?"editChart":"finalizeChart"}">${c.finalized?"✎ Edit Chart":"✓ Finalize Chart"}</button></div></div><div class="layout"><aside class="sidebar">${["summary","assessment","vitals","labs","orders","notes","final"].map(x=>`<button class="nav ${activeTab===x?"active":""}" data-nav="${x}">${({summary:"👤 Patient Summary",assessment:"🩺 Assessment",vitals:"💗 Vitals / Flowsheet",labs:"🧪 Labs / Flowsheet",orders:"📋 Orders",notes:"📝 Nursing Notes",final:"🎀 Final Dx / Debrief"})[x]}</button>`).join("")}</aside><main class="main ${c.finalized?"readonly-mode":""}">${c.finalized?`<div class="readonly-banner">🔒 Finalized chart — read-only view. Click <b>Edit Chart</b> above if you need to make changes.</div>`:""}${patientHeader(c)}${tabHTML(c)}</main></div></div>`}
+function chartHTML(){const c=current();return `<div class="app"><div class="top"><div><div class="brand">SimEHR</div><div class="sub">${esc(c.patient.name||"New Patient")} • ${esc(c.patient.scenario||"New Simulation")}</div></div><div class="actions"><button class="btn" id="back">← Patients</button><button class="btn" id="saveBtn" ${c.finalized?"style=\"display:none\"":""}>Save</button><button class="btn" id="exportChart">⇩ Export Chart</button><button class="btn primary" id="${c.finalized?"editChart":"finalizeChart"}">${c.finalized?"✎ Edit Chart":"✓ Finalize Chart"}</button></div></div><div class="layout"><aside class="sidebar">${["summary","assessment","vitals","labs","orders","notes","final"].map(x=>`<button class="nav ${activeTab===x?"active":""}" data-nav="${x}">${({summary:"👤 Patient Summary",assessment:"🩺 Assessment",vitals:"💗 Vitals / Flowsheet",labs:"🧪 Labs / Flowsheet",orders:"📋 Orders",notes:"📝 Nursing Notes",final:"🎀 Final Dx / Debrief"})[x]}</button>`).join("")}</aside><main class="main ${c.finalized?"readonly-mode":""}">${c.finalized?`<div class="readonly-banner">🔒 Finalized chart — read-only view. Click <b>Edit Chart</b> above if you need to make changes.</div>`:""}${patientHeader(c)}${tabHTML(c)}</main></div></div>`}
 function patientHeader(c){return `<div class="patient-head"><div class="grid g3">${input("Patient name","patient.name",c.patient.name,'placeholder="e.g. John Doe"')}${input("DOB / AGE","patient.dobage",c.patient.dobage||c.patient.dob||"",'placeholder="e.g. 22 M"')}${input("MRN","patient.mrn",c.patient.mrn)}${input("Allergies","patient.allergies",c.patient.allergies)}<label>Code status<select class="field" data-key="patient.code"><option ${c.patient.code==="Full Code"?"selected":""}>Full Code</option><option ${c.patient.code==="DNR"?"selected":""}>DNR</option><option ${c.patient.code==="DNI"?"selected":""}>DNI</option></select></label>${input("Scenario","patient.scenario",c.patient.scenario)}</div></div>`}
 function tabHTML(c){if(c.finalized)return readonlyTab(c);if(activeTab==="summary")return summary(c);if(activeTab==="assessment")return assessment(c);if(activeTab==="vitals")return flowsheet(c,"vitals",["Time","BP","HR","RR","SpO₂","Temp","Pain"],["time","bp","hr","rr","spo2","temp","pain"]);if(activeTab==="labs")return labs(c);if(activeTab==="orders")return orders(c);if(activeTab==="notes")return notes(c);return finalTab(c)}
 
@@ -237,7 +261,7 @@ function readonlyOrders(c){
   return content||`<div class="card"><h2 class="section-title">Orders</h2><p class="muted">No orders documented.</p></div>`;
 }
 function roImaging(o){return `<div class="ro-order">${roField("Study",`${o.type||""}${o.body?" — "+o.body:""}`)}${roField("Status",o.status)}${roText("Result / interpretation",o.result)}${o.mediaData?`<div class="ro-media"><img src="${o.mediaData}" alt="${esc(o.mediaName||"Diagnostic image")}"></div>`:""}</div>`}
-function roRegular(o,key){return `<div class="ro-order">${roField(key==="interventions"?(o.kind==="ECG"?"ECG":"Intervention"):"Consult / specialty",key==="interventions"&&o.kind==="ECG"?(o.ecgType||"ECG"):o.description)}${roField("Status",o.status)}${key==="interventions"&&o.kind==="ECG"?roField("ECG interpretation",o.result):""}${key==="interventions"&&o.kind==="ECG"&&o.mediaData?`<div class="ro-media"><img src="${o.mediaData}" alt="ECG"></div>`:""}${key==="consults"?roText("Consulting physician's recommendations / response",o.response):""}</div>`}
+function roRegular(o,key){return `<div class="ro-order">${roField(key==="interventions"?(o.kind==="ECG"?"ECG":"Intervention"):(key==="medications"?"Medication name":"Consult / specialty"),key==="interventions"&&o.kind==="ECG"?(o.ecgType||"ECG"):o.description)}${key==="medications"?roField("Dose",o.dose)+roField("Route",o.route)+roField("Frequency",o.frequency):""}${roField("Status",o.status)}${key==="interventions"&&o.kind==="ECG"?roField("ECG interpretation",o.result):""}${key==="interventions"&&o.kind==="ECG"&&o.mediaData?`<div class="ro-media"><img src="${o.mediaData}" alt="ECG"></div>`:""}${key==="consults"?roText("Consulting physician's recommendations / response",o.response):""}</div>`}
 function readonlyFinal(c){const f=c.final||{};const content=`${roField("Primary diagnosis",f.diagnosis)}${roField("Secondary diagnoses",f.secondary)}${roField("Disposition",f.disposition)}${roField("Discharge time",f.discharge)}${roText("Discharge instructions",f.instructions)}${roText("What went well",f.wentWell)}${roText("What could I have done better?",f.improve)}${roText("Definitions / concepts to review",f.definitions)}${roText("Questions to look up later",f.questions)}`;return `<div class="card"><h2 class="section-title">Final Diagnosis & Debrief</h2>${content||`<p class="muted">No final documentation entered.</p>`}</div>`}
 
 function summary(c){return `<div class="card"><h2 class="section-title">Patient Summary</h2><label>Chief complaint<textarea class="field" rows="4" data-key="patient.chief">${esc(c.patient.chief)}</textarea></label><div style="height:12px"></div><label>History / relevant information<textarea class="field" rows="7" data-key="patient.history">${esc(c.patient.history||"")}</textarea></label></div><div class="card"><h2 class="section-title">Chart status</h2><span class="badge">${c.notes.length} notes</span> <span class="badge">${c.vitals.length} vital sets</span> <span class="badge">${c.labs.length} lab sets</span></div>`}
@@ -269,14 +293,14 @@ function regularOrder(o,i,key){
   const media=o.mediaData?`<div class="media-preview"><img src="${o.mediaData}" alt="${esc(o.mediaName||"ECG image")}"><div class="muted">${esc(o.mediaName||"Uploaded image")}</div></div>`:"";
   return `<div class="order-block">
     <div class="grid g2">
-      <label>${isIntervention?"Intervention":"Consult / specialty"}
-        ${isIntervention?`<select class="field ordercell" data-type="${key}" data-i="${i}" data-k="kind"><option ${o.kind==="Intervention"||!o.kind?"selected":""}>Intervention</option><option ${o.kind==="ECG"?"selected":""}>ECG</option></select>`:`<input class="field ordercell" data-type="${key}" data-i="${i}" data-k="description" value="${esc(o.description||"")}" placeholder="e.g. Cardiology">`}
+      <label>${isIntervention?"Intervention":(isConsult?"Consult / specialty":"Medication name")}
+        ${isIntervention?`<select class="field ordercell" data-type="${key}" data-i="${i}" data-k="kind"><option ${o.kind==="Intervention"||!o.kind?"selected":""}>Intervention</option><option ${o.kind==="ECG"?"selected":""}>ECG</option></select>`:`<input class="field ordercell" data-type="${key}" data-i="${i}" data-k="description" value="${esc(o.description||"")}" placeholder="${isConsult?"e.g. Cardiology":"e.g. Ceftriaxone 1 g IV"}">`}
       </label>
       <label>Status<select class="field ordercell" data-type="${key}" data-i="${i}" data-k="status">
         <option ${o.status==="Ordered"?"selected":""}>Ordered</option><option ${o.status==="In Progress"?"selected":""}>In Progress</option><option ${o.status==="Completed"?"selected":""}>Completed</option><option ${o.status==="Pending"?"selected":""}>Pending</option>
       </select></label>
     </div>
-    ${isIntervention&&!isECG?`<label style="margin-top:10px">Description<input class="field ordercell" data-type="${key}" data-i="${i}" data-k="description" value="${esc(o.description||"")}" placeholder="Enter intervention"></label>`:""}
+    ${isIntervention&&!isECG?`<label style="margin-top:10px">Description<input class="field ordercell" data-type="${key}" data-i="${i}" data-k="description" value="${esc(o.description||"")}" placeholder="Enter intervention"></label>`:""}${key==="medications"?`<div class="grid g3" style="margin-top:10px"><label>Dose<input class="field ordercell" data-type="${key}" data-i="${i}" data-k="dose" value="${esc(o.dose||"")}" placeholder="e.g. 1 g"></label><label>Route<input class="field ordercell" data-type="${key}" data-i="${i}" data-k="route" value="${esc(o.route||"")}" placeholder="e.g. IV"></label><label>Frequency<input class="field ordercell" data-type="${key}" data-i="${i}" data-k="frequency" value="${esc(o.frequency||"")}" placeholder="e.g. q8h"></label></div>`:""}
     ${isECG?`<div class="grid g2" style="margin-top:10px"><label>ECG type<select class="field ordercell" data-type="${key}" data-i="${i}" data-k="ecgType"><option ${o.ecgType==="12-lead ECG"?"selected":""}>12-lead ECG</option><option ${o.ecgType==="Rhythm strip"?"selected":""}>Rhythm strip</option><option ${o.ecgType==="Other"?"selected":""}>Other</option></select></label><label>ECG interpretation<input class="field ordercell" data-type="${key}" data-i="${i}" data-k="result" value="${esc(o.result||"")}" placeholder="e.g. Sinus tachycardia"></label></div><label style="margin-top:10px">Upload ECG image<input class="field media" data-type="${key}" data-i="${i}" type="file" accept="image/*"></label>${media}`:""}
     ${isConsult?`<label style="margin-top:10px">Consulting physician's recommendations / response<textarea class="field compact-note ordercell" data-type="${key}" data-i="${i}" data-k="response" rows="3" placeholder="What did the consultant say or recommend?">${esc(o.response||"")}</textarea></label>`:""}
     <button class="btn danger removeOrder" data-type="${key}" data-i="${i}" style="margin-top:8px">Remove</button>
@@ -295,6 +319,14 @@ function bind(){
   document.querySelectorAll("[data-nav]").forEach(b=>b.onclick=()=>nav(b.dataset.nav));
   document.getElementById("back")?.addEventListener("click",()=>{currentId=null;render()});
   document.getElementById("saveBtn")?.addEventListener("click",()=>{update();toast("Chart saved")});
+  document.getElementById("exportChart")?.addEventListener("click",exportChart);
+  document.getElementById("importChart")?.addEventListener("change",e=>importChart(e.target.files[0]));
+  document.getElementById("exportAll")?.addEventListener("click",()=>{
+    const blob=new Blob([JSON.stringify(charts,null,2)],{type:"application/json"});
+    const url=URL.createObjectURL(blob);const a=document.createElement("a");
+    a.href=url;a.download="SimEHR_All_Charts.json";a.click();setTimeout(()=>URL.revokeObjectURL(url),500);toast("All charts exported");
+  });
+
   document.querySelectorAll(".tempcell").forEach(el=>el.addEventListener("blur",e=>{
     const raw=e.target.value.trim();
     if(!raw)return;
