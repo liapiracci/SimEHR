@@ -51,7 +51,7 @@ function esc(s){return String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&l
 function toast(t){const x=document.getElementById("toast");x.textContent=t;x.style.display="block";setTimeout(()=>x.style.display="none",1800)}
 function newChart(){const c={id:uid(),created:new Date().toISOString(),updated:new Date().toISOString(),patient:{name:"",dob:"",mrn:"",allergies:"",code:"Full Code",chief:"",scenario:""},assessment:{},vitals:[],labs:[],orders:{medications:[],interventions:[],imaging:[],consults:[],labwork:[],otherLabOrders:""},notes:[],final:{diagnosis:"",secondary:"",disposition:"",discharge:"",wentWell:"",improve:"",definitions:"",questions:""}};charts.unshift(c);save();currentId=c.id;activeTab="summary";render()}
 function current(){return charts.find(c=>c.id===currentId)}
-function update(){const c=current();c.updated=new Date().toISOString();save()}
+function update(){const c=current();if(!c)return;c.updated=new Date().toISOString();save()}
 function nav(label){activeTab=label;render()}
 function input(label,key,value,extra=""){return `<label>${label}<input class="field" data-key="${key}" value="${esc(value)}" ${extra}></label>`}
 function render(){document.getElementById("app").innerHTML=current()?chartHTML():libraryHTML();bind()}
@@ -73,6 +73,10 @@ function finalTab(c){return `<div class="card"><h2 class="section-title">Final D
 
 function bind(){
   const c=current();
+  document.getElementById("new")?.addEventListener("click",()=>newChart());
+  document.querySelectorAll(".open").forEach(b=>b.onclick=()=>{currentId=b.dataset.id;activeTab="summary";render()});
+  document.querySelectorAll(".del").forEach(b=>b.onclick=()=>{if(confirm("Delete this simulation?")){charts=charts.filter(x=>x.id!==b.dataset.id);save();render()}});
+  document.getElementById("search")?.addEventListener("input",e=>{const q=e.target.value.toLowerCase();document.getElementById("list").innerHTML=libraryRows(charts.filter(x=>JSON.stringify(x).toLowerCase().includes(q)));bind()});
   document.querySelectorAll("[data-nav]").forEach(b=>b.onclick=()=>nav(b.dataset.nav));
   document.getElementById("back")?.addEventListener("click",()=>{currentId=null;render()});
   document.getElementById("saveBtn")?.addEventListener("click",()=>{update();toast("Chart saved")});
