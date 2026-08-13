@@ -147,7 +147,7 @@ textarea.learning-note{
 .readonly-banner{margin-bottom:12px;padding:10px 12px;border-radius:12px;background:var(--pink-100);border:1px solid var(--pink-200);color:var(--pink-700);font-size:13px}
 .ua-divider th,.ua-divider-cell{background:var(--pink-100)!important;color:var(--pink-700);font-weight:700}
 .ua-label{padding-left:18px!important}
-.tempcell{min-width:150px}
+.tempcell{min-width:0}
 </style>
 </head>
 <body>
@@ -188,7 +188,7 @@ function flowsheet(c,type){
   while(rows.length<3)rows.push({time:"",bp:"",hr:"",rr:"",spo2:"",temp:"",pain:""});
   c.vitals=rows;
   const defs=[["bp","Blood pressure"],["hr","Heart rate"],["rr","Respiratory rate"],["spo2","SpO₂"],["temp","Temperature"],["pain","Pain"]];
-  return `<div class="card"><div class="actions" style="justify-content:space-between"><div><h2 class="section-title">Vitals Flowsheet</h2><div class="muted">Measurements run vertically. Tab moves down the current time column. Temperature accepts °C or °F and converts automatically.</div></div><button class="btn primary" id="addVitalTime">+ Time</button></div><div class="scroll"><table class="flowsheet"><thead><tr><th class="sticky-label">Vital</th>${rows.map((r,i)=>`<th><input class="field flow-time" data-row="${i}" value="${esc(r.time||"")}" placeholder="14:00"></th>`).join("")}</tr></thead><tbody>${defs.map(([key,label])=>`<tr><th class="sticky-label">${label}</th>${rows.map((r,i)=>`<td><input class="field flowcell ${key==="temp"?"tempcell":""}" data-row="${i}" data-k="${key}" value="${esc(r[key]||"")}" ${key==="temp"?'placeholder="38 C"':''}></td>`).join("")}</tr>`).join("")}</tbody></table></div></div>`;
+  return `<div class="card"><div class="actions" style="justify-content:space-between"><div><h2 class="section-title">Vitals Flowsheet</h2><div class="muted">Measurements run vertically. Tab moves down the current time column. Enter temperature as °C or °F; it converts automatically.</div></div><button class="btn primary" id="addVitalTime">+ Time</button></div><div class="scroll"><table class="flowsheet"><thead><tr><th class="sticky-label">Vital</th>${rows.map((r,i)=>`<th><input class="field flow-time" data-row="${i}" value="${esc(r.time||"")}" placeholder="14:00"></th>`).join("")}</tr></thead><tbody>${defs.map(([key,label])=>`<tr><th class="sticky-label">${label}</th>${rows.map((r,i)=>`<td><input class="field flowcell ${key==="temp"?"tempcell":""}" data-row="${i}" data-k="${key}" value="${esc(r[key]||"")}" ${key==="temp"?'':''}></td>`).join("")}</tr>`).join("")}</tbody></table></div></div>`;
 }
 function labs(c){
   const cols=c.labCols||["WBC","Hgb","Hct","Platelets","Na","K","Cl","CO₂","BUN","Cr","Glucose","Lactate"];
