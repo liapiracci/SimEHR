@@ -148,6 +148,26 @@ textarea.learning-note{
 .ua-divider th,.ua-divider-cell{background:var(--pink-100)!important;color:var(--pink-700);font-weight:700}
 .ua-label{padding-left:18px!important}
 .tempcell{min-width:0}
+
+.ro-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-bottom:16px}
+.ro-field{padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:#fffafb}
+.ro-field span{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:4px}
+.ro-field strong{font-weight:600}
+.ro-text{margin:14px 0;padding:12px 14px;border-left:3px solid var(--pink-300);background:#fffafb;border-radius:0 10px 10px 0;white-space:pre-wrap}
+.ro-text h3{font-size:13px;color:var(--pink-700);margin:0 0 6px}
+.ro-assess{padding:14px 0;border-bottom:1px solid var(--line)}
+.ro-assess:last-child{border-bottom:0}
+.ro-assess h3,.ro-subhead{margin:0 0 9px;color:var(--pink-700)}
+.ro-chips{display:flex;flex-wrap:wrap;gap:7px}
+.ro-chips span{padding:5px 9px;border-radius:999px;background:var(--pink-100);border:1px solid var(--pink-200);font-size:12px}
+.ro-table td{padding:9px;text-align:center;background:#fff}
+.ro-table th{padding:9px}
+.ro-order-section{margin-bottom:16px;padding:16px;border:1px solid var(--line);border-radius:16px;background:#fff}
+.ro-order{padding:12px 0;border-top:1px solid var(--line)}
+.ro-order:first-of-type{border-top:0}
+.ro-note{padding:14px 0;border-bottom:1px solid var(--line);white-space:pre-wrap}
+.ro-media{margin-top:10px;padding:10px;border:1px solid var(--pink-200);border-radius:12px;background:var(--pink-50);max-width:520px}
+.ro-media img{display:block;max-width:100%;max-height:380px;border-radius:8px}
 </style>
 </head>
 <body>
@@ -178,9 +198,48 @@ function input(label,key,value,extra=""){return `<label>${label}<input class="fi
 function render(){document.getElementById("app").innerHTML=current()?chartHTML():libraryHTML();bind()}
 function libraryHTML(){return `<div class="app"><div class="top"><div><div class="brand">SimEHR</div><div class="sub">Nursing simulation charting • local storage</div></div><button class="btn primary" id="new">+ New Simulation</button></div><div class="main"><div class="card"><h2 class="section-title">Patient Library</h2><input id="search" class="field" placeholder="Search patient, scenario, diagnosis..."><div id="list">${libraryRows(charts)}</div></div><div class="card"><div class="section-title">Data & Backup</div><div class="actions"><button class="btn" id="export">Export chart library</button><label class="btn">Import chart library<input id="import" type="file" accept=".json" style="display:none"></label></div><p class="muted">Charts are stored on this device. Export regularly so you have a backup.</p></div></div></div>`}
 function libraryRows(arr){if(!arr.length)return `<div class="empty">No simulations yet. Create your first chart.</div>`;return arr.map(c=>`<div class="library-row"><div><b>${esc(c.patient.name||"Unnamed patient")}</b><div class="muted">${esc(c.patient.scenario||"No scenario")} • ${new Date(c.updated).toLocaleDateString()}</div></div><div class="actions"><button class="btn open" data-id="${c.id}">Open</button><button class="btn danger del" data-id="${c.id}">Delete</button></div></div>`).join("")}
-function chartHTML(){const c=current();return `<div class="app"><div class="top"><div><div class="brand">SimEHR</div><div class="sub">${esc(c.patient.name||"New Patient")} • ${esc(c.patient.scenario||"New Simulation")}</div></div><div class="actions"><button class="btn" id="back">← Patients</button><button class="btn" id="saveBtn">Save</button><button class="btn ${c.finalized?"primary":"primary"}" id="${c.finalized?"editChart":"finalizeChart"}">${c.finalized?"✎ Edit Chart":"✓ Finalize Chart"}</button></div></div><div class="layout"><aside class="sidebar">${["summary","assessment","vitals","labs","orders","notes","final"].map(x=>`<button class="nav ${activeTab===x?"active":""}" data-nav="${x}">${({summary:"👤 Patient Summary",assessment:"🩺 Assessment",vitals:"💗 Vitals / Flowsheet",labs:"🧪 Labs / Flowsheet",orders:"📋 Orders",notes:"📝 Nursing Notes",final:"🎀 Final Dx / Debrief"})[x]}</button>`).join("")}</aside><main class="main ${c.finalized?"readonly-mode":""}">${c.finalized?`<div class="readonly-banner">🔒 Finalized chart — read-only view. Click <b>Edit Chart</b> above if you need to make changes.</div>`:""}${patientHeader(c)}${tabHTML(c)}</main></div></div>`}
+function chartHTML(){const c=current();return `<div class="app"><div class="top"><div><div class="brand">SimEHR</div><div class="sub">${esc(c.patient.name||"New Patient")} • ${esc(c.patient.scenario||"New Simulation")}</div></div><div class="actions"><button class="btn" id="back">← Patients</button><button class="btn" id="saveBtn" ${c.finalized?"style=\"display:none\"":""}>Save</button><button class="btn ${c.finalized?"primary":"primary"}" id="${c.finalized?"editChart":"finalizeChart"}">${c.finalized?"✎ Edit Chart":"✓ Finalize Chart"}</button></div></div><div class="layout"><aside class="sidebar">${["summary","assessment","vitals","labs","orders","notes","final"].map(x=>`<button class="nav ${activeTab===x?"active":""}" data-nav="${x}">${({summary:"👤 Patient Summary",assessment:"🩺 Assessment",vitals:"💗 Vitals / Flowsheet",labs:"🧪 Labs / Flowsheet",orders:"📋 Orders",notes:"📝 Nursing Notes",final:"🎀 Final Dx / Debrief"})[x]}</button>`).join("")}</aside><main class="main ${c.finalized?"readonly-mode":""}">${c.finalized?`<div class="readonly-banner">🔒 Finalized chart — read-only view. Click <b>Edit Chart</b> above if you need to make changes.</div>`:""}${patientHeader(c)}${tabHTML(c)}</main></div></div>`}
 function patientHeader(c){return `<div class="patient-head"><div class="grid g3">${input("Patient name","patient.name",c.patient.name,'placeholder="e.g. John Doe"')}${input("DOB / AGE","patient.dobage",c.patient.dobage||c.patient.dob||"",'placeholder="e.g. 22 M"')}${input("MRN","patient.mrn",c.patient.mrn)}${input("Allergies","patient.allergies",c.patient.allergies)}<label>Code status<select class="field" data-key="patient.code"><option ${c.patient.code==="Full Code"?"selected":""}>Full Code</option><option ${c.patient.code==="DNR"?"selected":""}>DNR</option><option ${c.patient.code==="DNI"?"selected":""}>DNI</option></select></label>${input("Scenario","patient.scenario",c.patient.scenario)}</div></div>`}
-function tabHTML(c){if(activeTab==="summary")return summary(c);if(activeTab==="assessment")return assessment(c);if(activeTab==="vitals")return flowsheet(c,"vitals",["Time","BP","HR","RR","SpO₂","Temp","Pain"],["time","bp","hr","rr","spo2","temp","pain"]);if(activeTab==="labs")return labs(c);if(activeTab==="orders")return orders(c);if(activeTab==="notes")return notes(c);return finalTab(c)}
+function tabHTML(c){if(c.finalized)return readonlyTab(c);if(activeTab==="summary")return summary(c);if(activeTab==="assessment")return assessment(c);if(activeTab==="vitals")return flowsheet(c,"vitals",["Time","BP","HR","RR","SpO₂","Temp","Pain"],["time","bp","hr","rr","spo2","temp","pain"]);if(activeTab==="labs")return labs(c);if(activeTab==="orders")return orders(c);if(activeTab==="notes")return notes(c);return finalTab(c)}
+
+function roField(label,value){return value?`<div class="ro-field"><span>${esc(label)}</span><strong>${esc(value)}</strong></div>`:""}
+function roText(label,value){return value?`<div class="ro-text"><h3>${esc(label)}</h3><div>${esc(value)}</div></div>`:""}
+function readonlyTab(c){
+  if(activeTab==="summary")return `<div class="card"><h2 class="section-title">Patient Summary</h2><div class="ro-grid">${roField("Patient name",c.patient.name)}${roField("DOB / AGE",c.patient.dobage||c.patient.dob)}${roField("MRN",c.patient.mrn)}${roField("Allergies",c.patient.allergies)}${roField("Code status",c.patient.code)}${roField("Scenario",c.patient.scenario)}</div>${roText("Chief complaint",c.patient.chief)}${roText("History / relevant information",c.patient.history)}</div>`;
+  if(activeTab==="assessment"){
+    const groups=Object.entries(assessmentGroups).map(([g,opts])=>{const chosen=c.assessment[g]||[];const other=(c.assessment._other||{})[g]||"";return (chosen.length||other)?`<div class="ro-assess"><h3>${esc(g)}</h3>${chosen.length?`<div class="ro-chips">${chosen.map(x=>`<span>${esc(x)}</span>`).join("")}</div>`:""}${roText("Other / notes",other)}</div>`:""}).join("");
+    return groups?`<div class="card"><h2 class="section-title">Assessment Findings</h2>${groups}</div>`:`<div class="card"><h2 class="section-title">Assessment Findings</h2><p class="muted">No assessment findings documented.</p></div>`;
+  }
+  if(activeTab==="vitals")return readonlyVitals(c);
+  if(activeTab==="labs")return readonlyLabs(c);
+  if(activeTab==="orders")return readonlyOrders(c);
+  if(activeTab==="notes")return c.notes.length?`<div class="card"><h2 class="section-title">Nursing Notes</h2>${c.notes.slice().reverse().map(n=>`<div class="ro-note"><b>${esc(n.type)}</b><div class="muted">${new Date(n.time).toLocaleString()}</div><div>${esc(n.text)}</div></div>`).join("")}</div>`:`<div class="card"><h2 class="section-title">Nursing Notes</h2><p class="muted">No nursing notes documented.</p></div>`;
+  return readonlyFinal(c);
+}
+function readonlyVitals(c){
+  const rows=(c.vitals||[]).filter(r=>Object.entries(r).some(([k,v])=>k!=="time"&&v));
+  if(!rows.length)return `<div class="card"><h2 class="section-title">Vitals Flowsheet</h2><p class="muted">No vitals documented.</p></div>`;
+  const defs=[["bp","Blood pressure"],["hr","Heart rate"],["rr","Respiratory rate"],["spo2","SpO₂"],["temp","Temperature"],["pain","Pain"]];
+  return `<div class="card"><h2 class="section-title">Vitals Flowsheet</h2><div class="scroll"><table class="flowsheet ro-table"><thead><tr><th class="sticky-label">Vital</th>${rows.map(r=>`<th>${esc(r.time||"")}</th>`).join("")}</tr></thead><tbody>${defs.map(([k,l])=>{const vals=rows.map(r=>r[k]||"");return vals.some(Boolean)?`<tr><th class="sticky-label">${l}</th>${vals.map(v=>`<td>${esc(v)}</td>`).join("")}</tr>`:""}).join("")}</tbody></table></div></div>`;
+}
+function readonlyLabs(c){
+  const rows=(c.labs||[]).filter(r=>Object.keys(r).some(k=>k!=="time"&&r[k]&&(typeof r[k]!=="object"||Object.keys(r[k]).length)));
+  if(!rows.length)return `<div class="card"><h2 class="section-title">Lab Results</h2><p class="muted">No lab results documented.</p></div>`;
+  const cols=c.labCols||[];
+  const blood=cols.filter(col=>rows.some(r=>r[col]));
+  const ua=[["color","Color"],["clarity","Clarity"],["specificGravity","Specific gravity"],["pH","pH"],["protein","Protein"],["glucose","Glucose"],["ketones","Ketones"],["blood","Blood"],["bilirubin","Bilirubin"],["urobilinogen","Urobilinogen"],["nitrite","Nitrite"],["leukocyte","Leukocyte esterase"],["wbc","WBC"],["rbc","RBC"],["bacteria","Bacteria"],["casts","Casts"]].filter(([k])=>rows.some(r=>r.ua&&r.ua[k]));
+  const table=(title,defs,get)=>defs.length?`<h3 class="ro-subhead">${title}</h3><div class="scroll"><table class="flowsheet ro-table"><thead><tr><th class="sticky-label">Lab</th>${rows.map(r=>`<th>${esc(r.time||"")}</th>`).join("")}</tr></thead><tbody>${defs.map(([k,l])=>`<tr><th class="sticky-label">${esc(l)}</th>${rows.map(r=>`<td>${esc(get(r,k)||"")}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`:"";
+  return `<div class="card"><h2 class="section-title">Lab Results</h2>${table("Blood Work",blood.map(x=>[x,x]),(r,k)=>r[k])}${table("🧪 Urinalysis",ua,(r,k)=>r.ua?.[k])}</div>`;
+}
+function readonlyOrders(c){
+  const sections=[["medications","Medications"],["interventions","Interventions"],["imaging","Imaging"],["consults","Consults"]];
+  const content=sections.map(([key,title])=>{const arr=(c.orders[key]||[]);if(!arr.length)return "";return `<div class="ro-order-section"><h2 class="section-title">${title}</h2>${arr.map(o=>key==="imaging"?roImaging(o):roRegular(o,key)).join("")}</div>`}).join("");
+  return content||`<div class="card"><h2 class="section-title">Orders</h2><p class="muted">No orders documented.</p></div>`;
+}
+function roImaging(o){return `<div class="ro-order">${roField("Study",`${o.type||""}${o.body?" — "+o.body:""}`)}${roField("Status",o.status)}${roText("Result / interpretation",o.result)}${o.mediaData?`<div class="ro-media"><img src="${o.mediaData}" alt="${esc(o.mediaName||"Diagnostic image")}"></div>`:""}</div>`}
+function roRegular(o,key){return `<div class="ro-order">${roField(key==="interventions"?(o.kind==="ECG"?"ECG":"Intervention"):"Consult / specialty",key==="interventions"&&o.kind==="ECG"?(o.ecgType||"ECG"):o.description)}${roField("Status",o.status)}${key==="interventions"&&o.kind==="ECG"?roField("ECG interpretation",o.result):""}${key==="interventions"&&o.kind==="ECG"&&o.mediaData?`<div class="ro-media"><img src="${o.mediaData}" alt="ECG"></div>`:""}${key==="consults"?roText("Consulting physician's recommendations / response",o.response):""}</div>`}
+function readonlyFinal(c){const f=c.final||{};const content=`${roField("Primary diagnosis",f.diagnosis)}${roField("Secondary diagnoses",f.secondary)}${roField("Disposition",f.disposition)}${roField("Discharge time",f.discharge)}${roText("Discharge instructions",f.instructions)}${roText("What went well",f.wentWell)}${roText("What could I have done better?",f.improve)}${roText("Definitions / concepts to review",f.definitions)}${roText("Questions to look up later",f.questions)}`;return `<div class="card"><h2 class="section-title">Final Diagnosis & Debrief</h2>${content||`<p class="muted">No final documentation entered.</p>`}</div>`}
+
 function summary(c){return `<div class="card"><h2 class="section-title">Patient Summary</h2><label>Chief complaint<textarea class="field" rows="4" data-key="patient.chief">${esc(c.patient.chief)}</textarea></label><div style="height:12px"></div><label>History / relevant information<textarea class="field" rows="7" data-key="patient.history">${esc(c.patient.history||"")}</textarea></label></div><div class="card"><h2 class="section-title">Chart status</h2><span class="badge">${c.notes.length} notes</span> <span class="badge">${c.vitals.length} vital sets</span> <span class="badge">${c.labs.length} lab sets</span></div>`}
 function assessment(c){return `<div class="card"><h2 class="section-title">Assessment</h2><p class="muted">Select every finding that applies. You can select multiple options in each section.</p>${Object.entries(assessmentGroups).map(([g,opts])=>`<div style="margin:18px 0"><h3>${g}</h3><div class="checkgrid">${opts.map(o=>`<label class="check"><input type="checkbox" data-assess="${esc(g)}" value="${esc(o)}" ${(c.assessment[g]||[]).includes(o)?"checked":""}>${esc(o)}</label>`).join("")}</div><label style="margin-top:8px">Other / notes<textarea class="field" rows="2" data-other="${esc(g)}">${esc((c.assessment._other||{})[g]||"")}</textarea></label></div>`).join("")}</div>`}
 function flowsheet(c,type){
