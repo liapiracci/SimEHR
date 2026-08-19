@@ -235,7 +235,13 @@ textarea.learning-note{
   .patient-status,.patient-actions{grid-column:2;grid-row:auto}
   .patient-actions{justify-content:flex-start}
 }
-.import-status{margin:0 0 14px;padding:11px 14px;border-radius:12px;font-size:13px;border:1px solid var(--pink-200)}.import-status.success{background:#f4fbf7;color:#397050;border-color:#cfe9d9}.import-status.error{background:#fff5f6;color:#a04d61;border-color:#f0cbd4}</style>
+.import-status{margin:0 0 14px;padding:11px 14px;border-radius:12px;font-size:13px;border:1px solid var(--pink-200)}.import-status.success{background:#f4fbf7;color:#397050;border-color:#cfe9d9}.import-status.error{background:#fff5f6;color:#a04d61;border-color:#f0cbd4}
+.media-dropzone{margin-top:10px;padding:18px 16px;border:1.5px dashed var(--pink-300);border-radius:14px;background:linear-gradient(180deg,#fffafd,#fff);text-align:center;cursor:pointer;transition:.15s ease;outline:none}
+.media-dropzone:hover,.media-dropzone:focus,.media-dropzone.dragover{border-color:var(--pink-500);background:var(--pink-50);box-shadow:0 0 0 3px rgba(231,167,190,.12)}
+.media-drop-icon{font-size:24px;color:var(--pink-500);line-height:1;margin-bottom:5px}
+.media-drop-title{font-size:13px;font-weight:650;color:var(--pink-700)}
+.media-drop-sub{font-size:11px;color:var(--muted);margin-top:4px}
+</style>
 </head>
 <body>
 <div id="app"></div><div id="toast" class="toast"></div>
@@ -455,7 +461,7 @@ function readonlyTab(c){
   if(activeTab==="summary")return `<div class="card"><h2 class="section-title">Patient Summary</h2><div class="ro-grid">${roField("Patient name",c.patient.name)}${roField("DOB / AGE",c.patient.dobage||c.patient.dob)}${roField("MRN",c.patient.mrn)}${roField("Allergies",c.patient.allergies)}${roField("Code status",c.patient.code)}${roField("Scenario",c.patient.scenario)}</div>${roText("Chief complaint",c.patient.chief)}${roText("History / relevant information",c.patient.history)}</div>`;
   if(activeTab==="assessment"){
     const groups=Object.entries(assessmentGroups).map(([g,opts])=>{const chosen=c.assessment[g]||[];const other=(c.assessment._other||{})[g]||"";return (chosen.length||other)?`<div class="ro-assess"><h3>${esc(g)}</h3>${chosen.length?`<div class="ro-chips">${chosen.map(x=>`<span>${esc(x)}</span>`).join("")}</div>`:""}${roText("Other / notes",other)}</div>`:""}).join("");
-    return groups?`<div class="card"><h2 class="section-title">Assessment Findings</h2>${groups}</div>`:`<div class="card"><h2 class="section-title">Assessment Findings</h2><p class="muted">No assessment findings documented.</p></div>`;
+    return (groups||c.assessmentMediaData)?`<div class="card"><h2 class="section-title">Assessment Findings</h2>${groups}${c.assessmentMediaData?`<div class="ro-media"><h3 class="ro-subhead">Assessment Image</h3><img src="${c.assessmentMediaData}" alt="${esc(c.assessmentMediaName||"Assessment image")}"></div>`:""}</div>`:`<div class="card"><h2 class="section-title">Assessment Findings</h2><p class="muted">No assessment findings documented.</p></div>`;
   }
   if(activeTab==="vitals")return readonlyVitals(c);
   if(activeTab==="labs")return readonlyLabs(c);
@@ -488,7 +494,7 @@ function roRegular(o,key){return `<div class="ro-order">${roField(key==="interve
 function readonlyFinal(c){const f=c.final||{};const content=`${roField("Primary diagnosis",f.diagnosis)}${roField("Secondary diagnoses",f.secondary)}${roField("Disposition",f.disposition)}${roField("Discharge time",f.discharge)}${roText("Discharge instructions",f.instructions)}${roText("What went well",f.wentWell)}${roText("What could I have done better?",f.improve)}${roText("Definitions / concepts to review",f.definitions)}${roText("Questions to look up later",f.questions)}`;return `<div class="card"><h2 class="section-title">Final Diagnosis & Debrief</h2>${content||`<p class="muted">No final documentation entered.</p>`}</div>`}
 
 function summary(c){return `<div class="card"><h2 class="section-title">Patient Summary</h2><label>Chief complaint<textarea class="field" rows="4" data-key="patient.chief">${esc(c.patient.chief)}</textarea></label><div style="height:12px"></div><label>History / relevant information<textarea class="field" rows="7" data-key="patient.history">${esc(c.patient.history||"")}</textarea></label></div><div class="card"><h2 class="section-title">Chart status</h2><span class="badge">${c.notes.length} notes</span> <span class="badge">${c.vitals.length} vital sets</span> <span class="badge">${c.labs.length} lab sets</span></div>`}
-function assessment(c){return `<div class="card"><h2 class="section-title">Assessment</h2><p class="muted">Select every finding that applies. You can select multiple options in each section.</p>${Object.entries(assessmentGroups).map(([g,opts])=>`<div style="margin:18px 0"><h3>${g}</h3><div class="checkgrid">${opts.map(o=>`<label class="check"><input type="checkbox" data-assess="${esc(g)}" value="${esc(o)}" ${(c.assessment[g]||[]).includes(o)?"checked":""}>${esc(o)}</label>`).join("")}</div><label style="margin-top:8px">Other / notes<textarea class="field" rows="2" data-other="${esc(g)}">${esc((c.assessment._other||{})[g]||"")}</textarea></label></div>`).join("")}</div>`}
+function assessment(c){return `<div class="card"><h2 class="section-title">Assessment</h2><p class="muted">Select every finding that applies. You can select multiple options in each section.</p>${Object.entries(assessmentGroups).map(([g,opts])=>`<div style="margin:18px 0"><h3>${g}</h3><div class="checkgrid">${opts.map(o=>`<label class="check"><input type="checkbox" data-assess="${esc(g)}" value="${esc(o)}" ${(c.assessment[g]||[]).includes(o)?"checked":""}>${esc(o)}</label>`).join("")}</div><label style="margin-top:8px">Other / notes<textarea class="field" rows="2" data-other="${esc(g)}">${esc((c.assessment._other||{})[g]||"")}</textarea></label></div>`).join("")}${mediaDropZone("assessment",0,{mediaData:c.assessmentMediaData,mediaName:c.assessmentMediaName},"Assessment image")}</div>`}
 function flowsheet(c,type){
   const rows=c.vitals||[];
   while(rows.length<3)rows.push({time:"",bp:"",hr:"",rr:"",spo2:"",temp:"",pain:""});
@@ -508,7 +514,51 @@ function labs(c){
   return `<div class="card"><h2 class="section-title">Lab Orders</h2><p class="muted">Select multiple labs at once. No individual add buttons or notes fields.</p><div class="checkgrid">${common.map(x=>`<label class="check"><input type="checkbox" class="labordercheck" value="${esc(x)}" ${selected.includes(x)?"checked":""}>${esc(x)}</label>`).join("")}</div><label style="margin-top:10px">Other lab orders<textarea class="field compact-note" id="otherLabOrders" rows="2" placeholder="Additional orders, one per line...">${esc(c.orders.otherLabOrders||"")}</textarea></label></div><div class="card"><div class="actions" style="justify-content:space-between"><div><h2 class="section-title">Lab Results Flowsheet</h2><div class="muted">Blood work and urinalysis have separate labeled sections. Tab moves down the current time column.</div></div><div class="actions"><button class="btn" id="addLab">+ Lab</button><button class="btn primary" id="addLabTime">+ Time</button></div></div><div class="scroll"><table class="flowsheet"><thead><tr><th class="sticky-label">Lab</th>${rows.map((r,i)=>`<th><input class="field lab-time" data-row="${i}" value="${esc(r.time||"")}" placeholder="14:00"></th>`).join("")}</tr></thead><tbody>${cols.map(col=>`<tr><th class="sticky-label"><input class="field labhead" data-col="${esc(col)}" value="${esc(col)}"></th>${rows.map((r,i)=>`<td><input class="field labcell" data-row="${i}" data-k="${esc(col)}" value="${esc(r[col]||"")}"></td>`).join("")}</tr>`).join("")}<tr class="ua-divider"><th class="sticky-label">🧪 URINALYSIS</th>${rows.map(()=>`<td class="ua-divider-cell"></td>`).join("")}</tr>${ua.map(([key,label])=>`<tr><th class="sticky-label ua-label">${label}</th>${rows.map((r,i)=>`<td><input class="field labcell" data-row="${i}" data-k="ua.${key}" value="${esc((r.ua||{})[key]||"")}"></td>`).join("")}</tr>`).join("")}</tbody></table></div></div>`;
 }
 function orders(c){const groups=[["medications","Medications"],["interventions","Interventions"],["imaging","Imaging"],["consults","Consults"]];return groups.map(([key,title])=>`<div class="card"><div class="actions" style="justify-content:space-between"><h2 class="section-title">${title}</h2><button class="btn primary addOrder" data-type="${key}">+ Add</button></div>${(c.orders[key]||[]).map((o,i)=>key==="imaging"?imagingOrder(o,i):regularOrder(o,i,key)).join("")||`<p class="muted">No ${title.toLowerCase()} entered.</p>`}</div>`).join("")}
-function imagingOrder(o,i){const types=["Ultrasound","CT","MRI","X-ray","Other"];const bodies={Ultrasound:["Abdomen","Pelvis","RUQ","Renal/Kidney","Bladder","OB/Pregnancy","DVT/Venous","Cardiac/Echo","Thyroid","Testicular/Scrotal","Breast","Other"],CT:["Head/Brain","Chest","Abdomen","Pelvis","Abdomen/Pelvis","Spine","Sinuses","Extremity","Other"],MRI:["Brain","Spine","Abdomen","Pelvis","Joint/Extremity","Cardiac","Other"],"X-ray":["Chest","Abdomen/KUB","Pelvis","Spine","Extremity","Skull","Other"],Other:["Other"]};const media=o.mediaData?`<div class="media-preview"><img src="${o.mediaData}" alt="${esc(o.mediaName||"Uploaded diagnostic image")}"><div class="muted">${esc(o.mediaName||"Uploaded image")}</div></div>`:(o.mediaName?`<div class="muted">Selected: ${esc(o.mediaName)}</div>`:"");return `<div class="order-block"><div class="grid g3"><label>Study type<select class="field ordercell" data-type="imaging" data-i="${i}" data-k="type">${types.map(x=>`<option ${o.type===x?"selected":""}>${x}</option>`).join("")}</select></label><label>Study / body<select class="field ordercell" data-type="imaging" data-i="${i}" data-k="body">${(bodies[o.type||"Ultrasound"]||["Other"]).map(x=>`<option ${o.body===x?"selected":""}>${x}</option>`).join("")}</select></label><label>Status<select class="field ordercell" data-type="imaging" data-i="${i}" data-k="status"><option ${o.status==="Ordered"?"selected":""}>Ordered</option><option ${o.status==="In Progress"?"selected":""}>In Progress</option><option ${o.status==="Completed"?"selected":""}>Completed</option><option ${o.status==="Pending"?"selected":""}>Pending</option></select></label></div><label style="margin-top:10px">Result / interpretation<textarea class="field compact-note ordercell" data-type="imaging" data-i="${i}" data-k="result" rows="3" placeholder="Enter result or interpretation...">${esc(o.result||"")}</textarea></label><label style="margin-top:10px">Upload image<input class="field media" data-type="imaging" data-i="${i}" type="file" accept="image/*"></label>${media}<button class="btn danger removeOrder" data-type="imaging" data-i="${i}" style="margin-top:8px">Remove</button></div>`}
+
+function mediaDropZone(type,i,o,label="Upload image"){
+  const preview=o.mediaData?`<div class="media-preview"><img src="${o.mediaData}" alt="${esc(o.mediaName||"Uploaded image")}"><div class="muted">${esc(o.mediaName||"Pasted image")}</div><button type="button" class="btn danger clearMedia" data-type="${type}" data-i="${i}" style="margin-top:7px">Remove image</button></div>`:"";
+  return `<div class="media-dropzone" data-media-drop="1" data-type="${type}" data-i="${i}" tabindex="0">
+    <div class="media-drop-icon">♡</div>
+    <div class="media-drop-title">${label}</div>
+    <div class="media-drop-sub">Drag & drop, paste an image, or click to browse</div>
+    <input class="media-picker" data-type="${type}" data-i="${i}" type="file" accept="image/*" style="display:none">
+    ${preview}
+  </div>`;
+}
+function saveMediaFile(type,i,file){
+  if(!file)return;
+  if(!file.type||!file.type.startsWith("image/")){toast("Please use an image file");return}
+  const reader=new FileReader();
+  reader.onload=()=>{
+    if(type==="assessment"){c.assessmentMediaName=file.name||"Pasted image";c.assessmentMediaData=reader.result}
+    else {const o=c.orders[type][+i];o.mediaName=file.name||"Pasted image";o.mediaData=reader.result}
+    update();render();toast("Image embedded in the chart")
+  };
+  reader.readAsDataURL(file);
+}
+function bindMediaZones(){
+  document.querySelectorAll(".media-dropzone").forEach(zone=>{
+    const type=zone.dataset.type,i=zone.dataset.i,picker=zone.querySelector(".media-picker");
+    zone.addEventListener("click",e=>{if(e.target.closest(".clearMedia"))return;picker?.click()});
+    zone.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();picker?.click()}});
+    picker?.addEventListener("change",e=>{saveMediaFile(type,i,e.target.files[0]);e.target.value=""});
+    ["dragenter","dragover"].forEach(ev=>zone.addEventListener(ev,e=>{e.preventDefault();e.stopPropagation();zone.classList.add("dragover")}));
+    ["dragleave","drop"].forEach(ev=>zone.addEventListener(ev,e=>{e.preventDefault();e.stopPropagation();zone.classList.remove("dragover")}));
+    zone.addEventListener("drop",e=>{const file=e.dataTransfer?.files?.[0];if(file)saveMediaFile(type,i,file)});
+    zone.addEventListener("paste",e=>{
+      const items=[...(e.clipboardData?.items||[])];
+      const item=items.find(x=>x.type.startsWith("image/"));
+      if(item){e.preventDefault();saveMediaFile(type,i,item.getAsFile())}
+    });
+  });
+  document.querySelectorAll(".clearMedia").forEach(btn=>btn.addEventListener("click",e=>{
+    e.stopPropagation();if(btn.dataset.type==="assessment"){c.assessmentMediaData="";c.assessmentMediaName=""}
+    else {const o=c.orders[btn.dataset.type][+btn.dataset.i];o.mediaData="";o.mediaName=""}
+    update();render();toast("Image removed");
+  }));
+}
+
+function imagingOrder(o,i){const types=["Ultrasound","CT","MRI","X-ray","Other"];const bodies={Ultrasound:["Abdomen","Pelvis","RUQ","Renal/Kidney","Bladder","OB/Pregnancy","DVT/Venous","Cardiac/Echo","Thyroid","Testicular/Scrotal","Breast","Other"],CT:["Head/Brain","Chest","Abdomen","Pelvis","Abdomen/Pelvis","Spine","Sinuses","Extremity","Other"],MRI:["Brain","Spine","Abdomen","Pelvis","Joint/Extremity","Cardiac","Other"],"X-ray":["Chest","Abdomen/KUB","Pelvis","Spine","Extremity","Skull","Other"],Other:["Other"]};const media=o.mediaData?`<div class="media-preview"><img src="${o.mediaData}" alt="${esc(o.mediaName||"Uploaded diagnostic image")}"><div class="muted">${esc(o.mediaName||"Uploaded image")}</div></div>`:(o.mediaName?`<div class="muted">Selected: ${esc(o.mediaName)}</div>`:"");return `<div class="order-block"><div class="grid g3"><label>Study type<select class="field ordercell" data-type="imaging" data-i="${i}" data-k="type">${types.map(x=>`<option ${o.type===x?"selected":""}>${x}</option>`).join("")}</select></label><label>Study / body<select class="field ordercell" data-type="imaging" data-i="${i}" data-k="body">${(bodies[o.type||"Ultrasound"]||["Other"]).map(x=>`<option ${o.body===x?"selected":""}>${x}</option>`).join("")}</select></label><label>Status<select class="field ordercell" data-type="imaging" data-i="${i}" data-k="status"><option ${o.status==="Ordered"?"selected":""}>Ordered</option><option ${o.status==="In Progress"?"selected":""}>In Progress</option><option ${o.status==="Completed"?"selected":""}>Completed</option><option ${o.status==="Pending"?"selected":""}>Pending</option></select></label></div><label style="margin-top:10px">Result / interpretation<textarea class="field compact-note ordercell" data-type="imaging" data-i="${i}" data-k="result" rows="3" placeholder="Enter result or interpretation...">${esc(o.result||"")}</textarea></label>${mediaDropZone("imaging",i,o,"Upload imaging")}<button class="btn danger removeOrder" data-type="imaging" data-i="${i}" style="margin-top:8px">Remove</button></div>`}
 function regularOrder(o,i,key){
   const isIntervention=key==="interventions";
   const isConsult=key==="consults";
@@ -524,7 +574,7 @@ function regularOrder(o,i,key){
       </select></label>
     </div>
     ${isIntervention&&!isECG?`<label style="margin-top:10px">Description<input class="field ordercell" data-type="${key}" data-i="${i}" data-k="description" value="${esc(o.description||"")}" placeholder="Enter intervention"></label>`:""}${key==="medications"?`<div class="grid g3" style="margin-top:10px"><label>Dose<input class="field ordercell" data-type="${key}" data-i="${i}" data-k="dose" value="${esc(o.dose||"")}" placeholder="e.g. 1 g"></label><label>Route<input class="field ordercell" data-type="${key}" data-i="${i}" data-k="route" value="${esc(o.route||"")}" placeholder="e.g. IV"></label><label>Frequency<input class="field ordercell" data-type="${key}" data-i="${i}" data-k="frequency" value="${esc(o.frequency||"")}" placeholder="e.g. q8h"></label></div>`:""}
-    ${isECG?`<div class="grid g2" style="margin-top:10px"><label>ECG type<select class="field ordercell" data-type="${key}" data-i="${i}" data-k="ecgType"><option ${o.ecgType==="12-lead ECG"?"selected":""}>12-lead ECG</option><option ${o.ecgType==="Rhythm strip"?"selected":""}>Rhythm strip</option><option ${o.ecgType==="Other"?"selected":""}>Other</option></select></label><label>ECG interpretation<input class="field ordercell" data-type="${key}" data-i="${i}" data-k="result" value="${esc(o.result||"")}" placeholder="e.g. Sinus tachycardia"></label></div><label style="margin-top:10px">Upload ECG image<input class="field media" data-type="${key}" data-i="${i}" type="file" accept="image/*"></label>${media}`:""}
+    ${isECG?`<div class="grid g2" style="margin-top:10px"><label>ECG type<select class="field ordercell" data-type="${key}" data-i="${i}" data-k="ecgType"><option ${o.ecgType==="12-lead ECG"?"selected":""}>12-lead ECG</option><option ${o.ecgType==="Rhythm strip"?"selected":""}>Rhythm strip</option><option ${o.ecgType==="Other"?"selected":""}>Other</option></select></label><label>ECG interpretation<input class="field ordercell" data-type="${key}" data-i="${i}" data-k="result" value="${esc(o.result||"")}" placeholder="e.g. Sinus tachycardia"></label></div>${mediaDropZone(key,i,o,"Upload ECG image")}`:""}
     ${isConsult?`<label style="margin-top:10px">Consulting physician's recommendations / response<textarea class="field compact-note ordercell" data-type="${key}" data-i="${i}" data-k="response" rows="3" placeholder="What did the consultant say or recommend?">${esc(o.response||"")}</textarea></label>`:""}
     <button class="btn danger removeOrder" data-type="${key}" data-i="${i}" style="margin-top:8px">Remove</button>
   </div>`;
@@ -633,10 +683,12 @@ function bind(){
   document.querySelectorAll(".addOrder").forEach(b=>b.onclick=()=>{c.orders[b.dataset.type].push(b.dataset.type==="imaging"?{type:"Ultrasound",body:"Abdomen",status:"Ordered",result:""}:{description:"",status:"Ordered",response:"",kind:b.dataset.type==="interventions"?"Intervention":undefined});update();render()});
   document.querySelectorAll(".removeOrder").forEach(b=>b.onclick=()=>{c.orders[b.dataset.type].splice(+b.dataset.i,1);update();render()});
   document.querySelectorAll(".ordercell").forEach(el=>el.addEventListener("change",e=>{const o=c.orders[e.target.dataset.type][+e.target.dataset.i];o[e.target.dataset.k]=e.target.value;update();if(e.target.dataset.type==="imaging"&&e.target.dataset.k==="type"){o.body=e.target.value==="Ultrasound"?"Abdomen":e.target.value==="CT"?"Head/Brain":e.target.value==="MRI"?"Brain":e.target.value==="X-ray"?"Chest":"Other";render()}else if(e.target.dataset.type==="interventions"&&e.target.dataset.k==="kind"){render()}}));
-  document.querySelectorAll(".media").forEach(el=>el.addEventListener("change",e=>{const f=e.target.files[0];if(!f)return;const o=c.orders[e.target.dataset.type][+e.target.dataset.i];const reader=new FileReader();reader.onload=()=>{o.mediaName=f.name;o.mediaData=reader.result;update();render();toast("Image embedded in the chart")};reader.readAsDataURL(f)}));
+  
 
   document.getElementById("addNote")?.addEventListener("click",()=>{const t=document.getElementById("noteText"),type=document.getElementById("noteType");if(!t.value.trim()){toast("Enter a note first");return}c.notes.push({time:new Date().toISOString(),type:type.value,text:t.value});t.value="";update();render();toast("Note signed")});
 }
 document.addEventListener("DOMContentLoaded",()=>{if(!currentId)render();});
 </script><script>if('serviceWorker' in navigator){navigator.serviceWorker.register('./sw.js?v=4').catch(()=>{});}</script></body>
 </html>
+
+bindMediaZones();
