@@ -520,7 +520,7 @@ function mediaDropZone(type,i,o,label="Upload image"){
   return `<div class="media-dropzone" data-media-drop="1" data-type="${type}" data-i="${i}" tabindex="0">
     <div class="media-drop-icon">♡</div>
     <div class="media-drop-title">${label}</div>
-    <div class="media-drop-sub">Drag & drop, paste an image, or click to browse</div>
+    <div class="media-drop-sub">Drag & drop, paste an image (Ctrl/⌘+V), or click to browse</div>
     <input class="media-picker" data-type="${type}" data-i="${i}" type="file" accept="image/*" style="display:none">
     ${preview}
   </div>`;
@@ -686,9 +686,8 @@ function bind(){
   
 
   document.getElementById("addNote")?.addEventListener("click",()=>{const t=document.getElementById("noteText"),type=document.getElementById("noteType");if(!t.value.trim()){toast("Enter a note first");return}c.notes.push({time:new Date().toISOString(),type:type.value,text:t.value});t.value="";update();render();toast("Note signed")});
+  bindMediaZones();
 }
 document.addEventListener("DOMContentLoaded",()=>{if(!currentId)render();});
 </script><script>if('serviceWorker' in navigator){navigator.serviceWorker.register('./sw.js?v=4').catch(()=>{});}</script></body>
 </html>
-
-bindMediaZones();
